@@ -1,24 +1,24 @@
 from enum import Enum
 from abc import ABC, abstractmethod
+from typing import Union
 
 from django.contrib.auth import get_user_model, _get_backends
-from django.conf import settings
 from django.http import HttpResponseRedirect
+from django.contrib.auth.backends import ModelBackend
 
 from ext_auth.models import UserProfile
 from ext_auth.choices import ExternalAuthType
-from ext_auth.backends import AzureADBackend
 
 UserModel = get_user_model()
 
-class ExtAuthBackend(ABC):
+class ExtAuthBackend(ABC, ModelBackend):
     """
     Protocol that defines a set of methods that needs
     to be implemented for evert external authentication
     provider.
     """
 
-    ext_auth_type: UserProfile.ExternalAuthType
+    ext_auth_type: ExternalAuthType
 
     def save_user(self, user: UserModel):
         user = user.save()
@@ -35,7 +35,7 @@ class ExtAuthBackend(ABC):
         ...
 
     def user_exists(self, user: UserModel) -> bool:
-        ...
+        return True
 
     def init_auth(self, request) -> HttpResponseRedirect:
         redirect = self.get_redirect_uri(request)
@@ -43,9 +43,8 @@ class ExtAuthBackend(ABC):
 
     def authenticate(self, request, username=None, password=None, **kwargs):
 
-        self.ext_authenticate(request, **kwargs)
-        user = self.get_user()
-        if not self.user_exists():
+        user = self.ext_authenticate(request, **kwargs)
+        if not self.user_exists(user):
             self.save_user(user)
         
         return user
@@ -55,41 +54,24 @@ class ExtAuthBackend(ABC):
         ...
 
     @abstractmethod
-    def ext_authenticate(self, request, **kwargs) -> str | None:
+    def ext_authenticate(self, request, **kwargs) -> UserModel:
         """
         This method should handle authenticating the user.
         It is being called from the ModelBackend's own
         authenticate method, which again gets called on a redirect
         callback.
-
-        If any further information is needed to get user info, save
-        it as an attribute here, so it can be used in the get_user method,
-        which is called after authentication.
-        
-        Optionally return access token from this method.
         """
         ...
 
     @abstractmethod
-    def get_user(self, request, **kwargs):
+    def get_ext_user(self, request, **kwargs):
         """
         Simply fetches the user from this authentication provider.
         """
         ...
 
 
-
-def get_provider(request):
-    ret_provider = None
-    for provider in ExternalAuthType.choices:
-        if provider == settings.EXT_AUTH_PROVIDER:
-            match provider:
-                case ExternalAuthType.AZURE_AD:
-                    ret_provider = AzureADBackend
-    return ret_provider
-
 def get_ext_auth_backend(request) -> ExtAuthBackend:
     for backend, backend_path in _get_backends(return_tuples=True):
         if isinstance(backend, ExtAuthBackend):
-            backend_provider = get_provider(request)
-            return backend_provider
+            return backend

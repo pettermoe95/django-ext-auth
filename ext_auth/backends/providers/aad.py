@@ -77,12 +77,12 @@ def get_user_from_dict(user_dict: dict) -> User:
             return create_user_from_dict(user_dict)
 
 def get_sign_in_flow(request):
-    backend = get_ext_auth_backend()
+    backend = get_ext_auth_backend(request)
     return backend.get_sign_in_flow(request)
 
 
 def get_token(request) -> str:
-    backend = get_ext_auth_backend()
+    backend = get_ext_auth_backend(request)
     return backend.get_token(request)
 
 class AzureADBackend(ExtAuthBackend):
@@ -90,7 +90,7 @@ class AzureADBackend(ExtAuthBackend):
     Implementation of Azure AD single tenant authentication
     """
 
-    def get_redirect_url(self, request) -> str:
+    def get_redirect_uri(self, request) -> str:
          # Get the sign-in flow
         flow = get_sign_in_flow(request)
         # Save the expected flow, so we can use it in the callback
@@ -102,6 +102,8 @@ class AzureADBackend(ExtAuthBackend):
         if 'next' in request.GET:
             print('LAGRER next i session', request.GET['next'])
             request.session['ext_auth_next'] = request.GET['next']
+        
+        return flow['auth_uri']
 
     def ext_authenticate(self, request, **kwargs):
         flow = request.session.pop(settings.EXT_AUTH_AAD_AUTH_FLOW_KEY, {})
@@ -110,12 +112,18 @@ class AzureADBackend(ExtAuthBackend):
 
         result = self.get_token_from_code(request, flow)
         if settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY in result:
-            graph_user = get_graph_user(result.get(
-                settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY))
-            return get_user_from_dict(graph_user)
+            token = result.get(
+                    settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY)
+            return self.get_ext_user(request, token)
+
+        
     
-    def get_user(self, request, **kwargs):
-        ...
+    def get_ext_user(self, request, token, **kwargs):
+        
+        graph_user = get_graph_user(token)
+        print('------------------ GRAPH USER -------------------')
+        print(graph_user)
+        return get_user_from_dict(graph_user)
 
     def client_id(self, request):
         return settings.EXT_AUTH_AAD_CLIENT_ID

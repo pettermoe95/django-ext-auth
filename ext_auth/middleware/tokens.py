@@ -1,4 +1,4 @@
-from ..backends.ext_auth import get_token
+from ext_auth.backends.providers.aad import get_token
 
 
 def graph_token_middleware(get_response):
