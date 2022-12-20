@@ -1,3 +1,4 @@
+from typing import Union
 from msal import (
     SerializableTokenCache,
     ConfidentialClientApplication
@@ -160,7 +161,7 @@ class AzureADBackend(ExtAuthBackend):
         save_token_cache(request, cache)
         return result
 
-    def get_token(self, request) -> str:
+    def get_token(self, request) -> Union[str, None]:
         cache = load_token_cache(request)
         auth_app = self.get_msal_app(cache)
 
@@ -171,4 +172,4 @@ class AzureADBackend(ExtAuthBackend):
                 account=accounts[0])
 
             save_token_cache(request, cache)
-            return result[settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY]
+            return result.get(settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY)
