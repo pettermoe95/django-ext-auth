@@ -4,14 +4,12 @@ from abc import ABC, abstractmethod
 from django.contrib.auth import get_user_model, _get_backends
 from django.conf import settings
 from django.http import HttpResponseRedirect
-from ext_auth.backends.providers.aad import AzureADProvider
 
 from ext_auth.models import UserProfile
+from ext_auth.choices import ExternalAuthType
+from ext_auth.backends import AzureADBackend
 
 UserModel = get_user_model()
-
-class ExtAuthProviders(Enum):
-    AZURE_AD = 1
 
 class ExtAuthBackend(ABC):
     """
@@ -83,16 +81,15 @@ class ExtAuthBackend(ABC):
 
 def get_provider(request):
     ret_provider = None
-    for provider in ExtAuthProviders:
+    for provider in ExternalAuthType.choices:
         if provider == settings.EXT_AUTH_PROVIDER:
             match provider:
-                case ExtAuthProviders.AZURE_AD:
-                    ret_provider = AzureADProvider()
+                case ExternalAuthType.AZURE_AD:
+                    ret_provider = AzureADBackend
     return ret_provider
 
 def get_ext_auth_backend(request) -> ExtAuthBackend:
     for backend, backend_path in _get_backends(return_tuples=True):
         if isinstance(backend, ExtAuthBackend):
-            provider = get_provider(request)
-            setattr(backend, 'provider', provider)
-            return backend
+            backend_provider = get_provider(request)
+            return backend_provider
