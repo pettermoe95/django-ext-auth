@@ -7,7 +7,7 @@ from ext_auth.backends.ext_auth import get_ext_auth_backend
 
 
 def sign_in(request):
-    backend = get_ext_auth_backend()
+    backend = get_ext_auth_backend(request)
     http_response_redirect = backend.init_auth(request)
 
     if 'next' in request.GET:
