@@ -1,6 +1,4 @@
-from enum import Enum
 from abc import ABC, abstractmethod
-from typing import Union
 
 from django.contrib.auth import get_user_model, _get_backends
 from django.http import HttpResponseRedirect
