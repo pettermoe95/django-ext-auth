@@ -11,29 +11,39 @@ UserModel = get_user_model()
 
 class ExtAuthBackend(ABC, ModelBackend):
     """
-    Protocol that defines a set of methods that needs
+    Abstract Class that defines a set of methods that needs
     to be implemented for evert external authentication
     provider.
     """
 
     ext_auth_type: ExternalAuthType
 
-    def save_user(self, user: UserModel):
-        user = user.save()
+    def create_user(self, username: str, email: str, **kwargs) -> UserModel:
+        user = UserModel.objects.create_user(
+            username=username,
+            email=email,
+            password=UserModel.objects.make_random_password(length=14)
+        )
         user_profile = UserProfile(
-            user,
-            " ".join([user.first_name, user.last_name]),
-            "",
-            self.provider.ext_auth_type
+            user=user,
+            display_name=" ".join([user.first_name, user.last_name]),
+            department="",
+            ext_auth=self.ext_auth_type
         )
         self.save_user_profile(user_profile)
+        return user
         
 
-    def save_user_profile(self, user_profile: UserProfile):
-        ...
+    def save_user_profile(self, user_profile: UserProfile) -> UserProfile:
+        user_profile = user_profile.save()
+        return user_profile
 
-    def user_exists(self, user: UserModel) -> bool:
-        return True
+    def user_exists(self, email: str, **kwargs) -> bool:
+        try:
+            UserModel.objects.get(email=email)
+            return True
+        except UserModel.DoesNotExist:
+            return False
 
     def init_auth(self, request) -> HttpResponseRedirect:
         redirect = self.get_redirect_uri(request)
@@ -41,23 +51,40 @@ class ExtAuthBackend(ABC, ModelBackend):
 
     def authenticate(self, request, username=None, password=None, **kwargs):
 
-        user = self.ext_authenticate(request, **kwargs)
-        if not self.user_exists(user):
-            self.save_user(user)
+        user_dict = self.ext_authenticate(request, **kwargs)
+        # user_dict should have username and email keys
+        if not self.user_exists(user_dict.get('email')):
+            user = self.create_user(
+                user_dict.get('username'),
+                user_dict.get('email')
+            )
+            return user
         
-        return user
+        return self.get_user_from_username(user_dict.get('username'))
+    
+    def get_user_from_username(self, username):
+        try:
+            user = UserModel._default_manager.get(username=username)
+        except UserModel.DoesNotExist:
+            return None
+        return user if self.user_can_authenticate(user) else None
 
     @abstractmethod
     def get_redirect_uri(request) -> str:
         ...
 
     @abstractmethod
-    def ext_authenticate(self, request, **kwargs) -> UserModel:
+    def ext_authenticate(self, request, **kwargs) -> dict:
         """
         This method should handle authenticating the user.
         It is being called from the ModelBackend's own
         authenticate method, which again gets called on a redirect
         callback.
+
+        Should just return dict representation of the
+        external authentication response:
+        key: email
+        key: username
         """
         ...
 

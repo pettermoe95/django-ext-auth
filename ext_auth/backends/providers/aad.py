@@ -7,6 +7,7 @@ from msal import (
 from django.contrib.auth.models import User
 from django.conf import settings
 
+#import ext_auth.services.ms_graph as ms_graph
 from ext_auth.services.ms_graph import get_graph_user
 from ext_auth.backends.ext_auth import ExtAuthBackend, get_ext_auth_backend
 
@@ -51,31 +52,11 @@ def get_user_by_email(email) -> User:
 def has_external_auth(request) -> bool:
     return bool(request.session.get('user'))
 
-
 def get_ext_user_from_session(session) -> dict:
     return session.get('user')
 
-
 def validate_user_dict(user_dict: dict) -> bool:
     return bool(user_dict.get('userPrincipalName'))
-
-
-def create_user_from_dict(user_dict: dict) -> User:
-    user: User = User.objects.create_user(
-        username=user_dict.get('userPrincipalName'),
-        email=user_dict.get('userPrincipalName'),
-        # Using a random password here, as it's needed
-        password=User.objects.make_random_password(length=14)
-    )
-    return user
-
-
-def get_user_from_dict(user_dict: dict) -> User:
-    try:
-        return User.objects.get(email=user_dict.get('userPrincipalName'))
-    except UserModel.DoesNotExist:
-        if validate_user_dict(user_dict):
-            return create_user_from_dict(user_dict)
 
 def get_sign_in_flow(request):
     backend = get_ext_auth_backend(request)
@@ -85,6 +66,22 @@ def get_sign_in_flow(request):
 def get_token(request) -> str:
     backend = get_ext_auth_backend(request)
     return backend.get_token(request)
+
+"""
+1. Authenticate against Azure AD
+2. Get User dict
+3. Check if user exists
+4. If user exists, auth is complete and return user
+5. If user does not exist, need to save user to db(from dict)
+6. Save user profile
+
+auth methods
+
+get_user_dict
+user_exists(email)
+create_user_from_dict(user_dict)
+
+"""
 
 class AzureADBackend(ExtAuthBackend):
     """
@@ -106,7 +103,7 @@ class AzureADBackend(ExtAuthBackend):
         
         return flow['auth_uri']
 
-    def ext_authenticate(self, request, **kwargs):
+    def ext_authenticate(self, request, **kwargs) -> Union[UserModel, None]:
         flow = request.session.pop(settings.EXT_AUTH_AAD_AUTH_FLOW_KEY, {})
         if 'code' not in request.GET:
             return
@@ -116,15 +113,16 @@ class AzureADBackend(ExtAuthBackend):
             token = result.get(
                     settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY)
             return self.get_ext_user(request, token)
-
         
-    
     def get_ext_user(self, request, token, **kwargs):
-        
         graph_user = get_graph_user(token)
-        print('------------------ GRAPH USER -------------------')
-        print(graph_user)
-        return get_user_from_dict(graph_user)
+        return {
+            'username': graph_user.get('userPrincipalName'),
+            'email': graph_user.get('userPrincipalName'),
+            'firstName': graph_user.get('givenName'),
+            'lastName': graph_user.get('surname'),
+            'department': graph_user.get('department')
+        }
 
     def client_id(self, request):
         return settings.EXT_AUTH_AAD_CLIENT_ID
@@ -157,7 +155,9 @@ class AzureADBackend(ExtAuthBackend):
         cache = load_token_cache(request)
         auth_app = self.get_msal_app(cache)
         # Get the flow saved in session
-        result = auth_app.acquire_token_by_auth_code_flow(flow, request.GET)
+        result = auth_app.acquire_token_by_auth_code_flow(
+            flow, request.GET)
+            
         save_token_cache(request, cache)
         return result
 
