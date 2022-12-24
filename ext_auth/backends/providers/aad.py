@@ -10,7 +10,7 @@ from django.conf import settings
 #import ext_auth.services.ms_graph as ms_graph
 from ext_auth.services.ms_graph import get_graph_user
 from ext_auth.backends.ext_auth import ExtAuthBackend, get_ext_auth_backend
-
+from ext_auth.choices import ExternalAuthType
 from django.contrib.auth import get_user_model
 
 UserModel = get_user_model()
@@ -24,36 +24,13 @@ def load_token_cache(request):
 
     return cache
 
-
 def save_token_cache(request, cache):
     # If cache has changed, persist back to session
     if cache.has_state_changed:
         request.session[settings.EXT_AUTH_AAD_TOKEN_CACHE_KEY] = cache.serialize()
 
-
-def store_user(request, user):
-    try:
-        request.session['user'] = {
-            'is_authenticated': True,
-            'name': user['displayName'],
-            'email': user['userPrincipalName'],
-            'givenName': user['givenName'],
-            'surname': user['surname'],
-            'department': user['department'],
-        }
-    except Exception as e:
-        print(e)
-
-
-def get_user_by_email(email) -> User:
-    return User.objects.get(email=email)
-
-
 def has_external_auth(request) -> bool:
     return bool(request.session.get('user'))
-
-def get_ext_user_from_session(session) -> dict:
-    return session.get('user')
 
 def validate_user_dict(user_dict: dict) -> bool:
     return bool(user_dict.get('userPrincipalName'))
@@ -62,31 +39,18 @@ def get_sign_in_flow(request):
     backend = get_ext_auth_backend(request)
     return backend.get_sign_in_flow(request)
 
-
 def get_token(request) -> str:
     backend = get_ext_auth_backend(request)
+
     return backend.get_token(request)
 
-"""
-1. Authenticate against Azure AD
-2. Get User dict
-3. Check if user exists
-4. If user exists, auth is complete and return user
-5. If user does not exist, need to save user to db(from dict)
-6. Save user profile
-
-auth methods
-
-get_user_dict
-user_exists(email)
-create_user_from_dict(user_dict)
-
-"""
 
 class AzureADBackend(ExtAuthBackend):
     """
     Implementation of Azure AD single tenant authentication
     """
+
+    ext_auth_type = ExternalAuthType.AZURE_AD
 
     def get_redirect_uri(self, request) -> str:
          # Get the sign-in flow
@@ -157,7 +121,7 @@ class AzureADBackend(ExtAuthBackend):
         # Get the flow saved in session
         result = auth_app.acquire_token_by_auth_code_flow(
             flow, request.GET)
-            
+
         save_token_cache(request, cache)
         return result
 

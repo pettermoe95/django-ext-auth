@@ -62,7 +62,7 @@ class ExtAuthBackend(ABC, ModelBackend):
         
         return self.get_user_from_username(user_dict.get('username'))
     
-    def get_user_from_username(self, username):
+    def get_user_by_username(self, username):
         try:
             user = UserModel._default_manager.get(username=username)
         except UserModel.DoesNotExist:
@@ -96,7 +96,13 @@ class ExtAuthBackend(ABC, ModelBackend):
         ...
 
 
-def get_ext_auth_backend(request) -> ExtAuthBackend:
+def get_ext_auth_backend(request, type: ExternalAuthType = None) -> ExtAuthBackend:
     for backend, backend_path in _get_backends(return_tuples=True):
         if isinstance(backend, ExtAuthBackend):
-            return backend
+            if not type:
+                return backend
+            
+            # If type spe
+            if type == backend.ext_auth_type:
+                return backend
+
