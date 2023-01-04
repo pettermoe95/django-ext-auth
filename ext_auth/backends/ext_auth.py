@@ -60,7 +60,7 @@ class ExtAuthBackend(ABC, ModelBackend):
             )
             return user
         
-        return self.get_user_from_username(user_dict.get('username'))
+        return self.get_user_by_username(user_dict.get('username'))
     
     def get_user_by_username(self, username):
         try:

@@ -102,3 +102,25 @@ class ExtAuthBackendTests(TestCase):
                 USER_DICT.get('userPrincipalName'),
                 USER_DICT.get('userPrincipalName')
             )
+    
+    def test_create_get_user_profile(self):
+
+        username = 'leomessi'
+        email = 'leomessi@gmail.com' 
+
+        aad_backend = AzureADBackend()
+        result_user = aad_backend.create_user(username, email)
+        self.assertEqual(result_user.userprofile.ext_auth, ExternalAuthType.AZURE_AD)
+
+    def test_user_exists(self):
+        username = 'leomessi'
+        email = 'leomessi@gmail.com' 
+
+        aad_backend = AzureADBackend()
+        aad_backend.create_user(username, email)
+        user_exists = aad_backend.user_exists(email)
+        # Test that user exists
+        self.assertEqual(user_exists, True)
+        # Test that it does not exist
+        user_does_not_exist = aad_backend.user_exists('shouldnotexist')
+        self.assertEqual(user_does_not_exist, False)
