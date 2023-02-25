@@ -1,4 +1,5 @@
 import requests
+from itertools import chain
 from django.conf import settings
 graph_url = "https://graph.microsoft.com/v1.0"
 
@@ -24,6 +25,24 @@ def get_graph_user(token) -> dict:
     # Return the JSON result
     json_user = user.json()
     return json_user
+
+
+def get_all_users(token):
+    users = []
+    next_link = f"{graph_url}/users"
+    params = {"$select": get_user_query_params()}
+    while next_link:
+        new_users = requests.get(
+            next_link,
+            headers={"Authorization": f"Bearer {token}"},
+            params=params,
+        ).json()
+
+        next_link = new_users.get("@odata.nextLink")
+        users = chain(users, new_users.get("value", []))
+        params = None
+
+    return list(users)
 
 
 def id_in_group(token, guid):
