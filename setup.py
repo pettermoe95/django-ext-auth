@@ -3,10 +3,10 @@ from setuptools import setup
 __version__ = "1.0"
 
 setup(
-    name="django-ext-auth",
+    name="django-auth-providers",
     version=__version__,
     description=(
-        "djang-ext-auth is a django app that lets you"
+        "django-auth-providers is a django app that lets you"
         " authenticate to external authentication providers"
     ),
     author="Petter Elenius Moe",
