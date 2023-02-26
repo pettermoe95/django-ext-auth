@@ -1,7 +1,6 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
-__version__ = "1.0"
-
+__version__ = "1.0.4"
 setup(
     name="django-auth-providers",
     version=__version__,
@@ -12,5 +11,5 @@ setup(
     author="Petter Elenius Moe",
     author_email="pettermoe9530@gmail.com",
     url="https://github.com/pettermoe95/django-ext-auth/tree/main",
-    packages=('ext_auth',),
+    packages=['ext_auth'] + ['ext_auth.' + pkg for pkg in find_packages('ext_auth')],
 )
