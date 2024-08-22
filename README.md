@@ -14,8 +14,8 @@ If you want to enable authentication against against Azure AD, Google and more, 
 - [ ] BankID
 
 # Requirements
-Python 3.10, 3.9
-Django 4.1, 4.0
+Python 3.12, 3.11, 3.10, 3.9
+Django 5.1 <= 4.0
 
 I have not tested lower versions of django and python, so it might be compatible with more versions.
 

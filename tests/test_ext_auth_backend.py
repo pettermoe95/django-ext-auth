@@ -124,3 +124,7 @@ class ExtAuthBackendTests(TestCase):
         # Test that it does not exist
         user_does_not_exist = aad_backend.user_exists('shouldnotexist')
         self.assertEqual(user_does_not_exist, False)
+
+    def test_random_password(self):
+        pw = ext_auth.make_random_password()
+        self.assertEqual(len(pw), 16)

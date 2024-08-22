@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+import secrets
+import string
 
 from django.contrib.auth import get_user_model, _get_backends
 from django.http import HttpResponseRedirect
@@ -8,6 +10,11 @@ from ext_auth.models import UserProfile
 from ext_auth.choices import ExternalAuthType
 
 UserModel = get_user_model()
+
+def make_random_password(length=16):
+    alphabet = string.ascii_letters + string.digits + string.punctuation
+    password = ''.join(secrets.choice(alphabet) for _ in range(length))
+    return password
 
 class ExtAuthBackend(ABC, ModelBackend):
     """
@@ -22,7 +29,7 @@ class ExtAuthBackend(ABC, ModelBackend):
         user = UserModel.objects.create_user(
             username=username,
             email=email,
-            password=UserModel.objects.make_random_password(length=14)
+            password=make_random_password(length=14)
         )
         user_profile = UserProfile(
             user=user,
