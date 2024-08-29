@@ -29,6 +29,12 @@ def save_token_cache(request, cache):
     if cache.has_state_changed:
         request.session[settings.EXT_AUTH_AAD_TOKEN_CACHE_KEY] = cache.serialize()
 
+def clear_session(request):
+    """
+    Clears the current users session data, which will force new auth
+    """
+    request.session.pop(settings.EXT_AUTH_AAD_TOKEN_CACHE_KEY)
+
 def has_external_auth(request) -> bool:
     return bool(request.session.get('user'))
 
@@ -135,5 +141,17 @@ class AzureADBackend(ExtAuthBackend):
                 settings.EXT_AUTH_AAD_SCOPES,
                 account=accounts[0])
 
+            # This can happen for various reasons, error or token not present in cache
+            if not result:
+                clear_session(request)
+                return
+
+            # If for some weird reason, token is not in the validated dict
+            token = result.get(settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY)
+            if not token:
+                clear_session(request)
+                return
+
+            # If everything went well, save the new state to session data
             save_token_cache(request, cache)
-            return result.get(settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY)
+            return token
