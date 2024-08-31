@@ -26,7 +26,7 @@ Place the package in your django project, side by side with your other django ap
 
 ## Installed Apps
 Add ´ext_auth´ to your INSTALLED_APPS in your settings.py:
-```
+```python
 INSTALLED_APPS = [
     ...
     'ext_auth',
@@ -35,7 +35,7 @@ INSTALLED_APPS = [
 ```
 ## Middleware
 It is also important to add the ´graph_token_middleware´, somewhere after the Session and Authentication middleware:
-```
+```python
 MIDDLEWARE = [
     ...
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -46,7 +46,7 @@ MIDDLEWARE = [
 ```
 ## AzureADBackend
 Now add the AzureADBackend to your AUTHENTICATION_BACKENDS:
-```
+```python
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     'ext_auth.backends.AzureADBackend'
@@ -56,7 +56,7 @@ AUTHENTICATION_BACKENDS = [
 ## Urls
 ext_auth comes with a sign_in view. For it to work you need to include the urls and set LOGIN_URL.
 setting the urls:
-```
+```python
 urlpatterns = [
     ...
     path('admin', admin_site.urls),
@@ -66,14 +66,14 @@ urlpatterns = [
 ```
 
 set the LOGIN_URL in settings.py:
-```
+```python
 LOGIN_URL = '/auth/signin'
 ```
 
 ## Secrets
 Finally we need to set some values in the django settings to be able to contact your provider and complete authentications:
 ### Azure AD
-```
+```python
 EXT_AUTH_AAD_CLIENT_ID = 'XXXXX-XXXXX-XXXXX-XXXXXX' # The ´Client ID´ for your Azure AD App Registration
 EXT_AUTH_AAD_TENANT_ID = 'XXXXX-XXXXX-XXXXX-XXXXXX' # Your Azure AD ´Tenant ID´
 EXT_AUTH_AAD_AUTH_AUTHORITY = f"https://login.microsoftonline.com/{EXT_AUTH_AAD_TENANT_ID}" # For single tenant 
