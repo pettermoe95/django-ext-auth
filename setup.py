@@ -1,6 +1,9 @@
 from setuptools import setup, find_packages
 
 __version__ = "1.0.6"
+
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
 setup(
     name="django-auth-providers",
     version=__version__,
@@ -8,6 +11,8 @@ setup(
         "django-auth-providers is a django app that lets you"
         " authenticate to external authentication providers"
     ),
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     author="Petter Elenius Moe",
     author_email="pettermoe9530@gmail.com",
     url="https://github.com/pettermoe95/django-ext-auth/tree/main",
