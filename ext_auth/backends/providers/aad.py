@@ -12,6 +12,10 @@ from ext_auth.services.ms_graph import get_graph_user
 from ext_auth.backends.ext_auth import ExtAuthBackend, get_ext_auth_backend
 from ext_auth.choices import ExternalAuthType
 from django.contrib.auth import get_user_model
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
 
 UserModel = get_user_model()
 
@@ -68,22 +72,24 @@ class AzureADBackend(ExtAuthBackend):
             print(e)
         # Redirect to the Azure sign-in page
         if 'next' in request.GET:
-            print('LAGRER next i session', request.GET['next'])
             request.session['ext_auth_next'] = request.GET['next']
-        
+
         return flow['auth_uri']
 
     def ext_authenticate(self, request, **kwargs) -> Union[UserModel, None]:
         flow = request.session.pop(settings.EXT_AUTH_AAD_AUTH_FLOW_KEY, {})
         if 'code' not in request.GET:
             return
+        try:
+            result = self.get_token_from_code(request, flow)
+            if settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY in result:
+                token = result.get(
+                        settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY)
+                return self.get_ext_user(request, token)
+        except ValueError as e:
+            logger.error("Could not get token from code...")
+            logger.error(e)
 
-        result = self.get_token_from_code(request, flow)
-        if settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY in result:
-            token = result.get(
-                    settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY)
-            return self.get_ext_user(request, token)
-        
     def get_ext_user(self, request, token, **kwargs):
         graph_user = get_graph_user(token)
         return {
