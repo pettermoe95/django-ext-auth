@@ -1,13 +1,21 @@
-from django.test import TestCase
+from django.http.response import responses
+from django.test import TestCase, RequestFactory
+from django.contrib.sessions.middleware import SessionMiddleware
 from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.http import HttpResponse
 from unittest.mock import Mock, patch
 
+from django.urls import reverse
+
 from ext_auth.backends import ExtAuthBackend, AzureADBackend
-from ext_auth.backends.ext_auth import get_ext_auth_backend
+from ext_auth.backends import ext_auth
+from ext_auth.backends.ext_auth import get_ext_auth_backend, AuthenticationException
 from ext_auth.models import UserProfile
 from ext_auth.choices import ExternalAuthType
 from ext_auth.services.ms_graph import get_graph_user
+from ext_auth.views import callback
+from functools import partial
 
 UserModel = get_user_model()
 
@@ -42,16 +50,15 @@ class AzureADBackendTests(TestCase):
     def test_no_auth_callback_code(self):
         request = Mock()
         request.GET = {}
-        result =AzureADBackend().ext_authenticate(request)
-        self.assertEqual(result, None)
-    
+        auth_func = partial(AzureADBackend().ext_authenticate, request)
+        self.assertRaises(AuthenticationException, auth_func)
+
     @patch('ext_auth.backends.providers.aad.AzureADBackend.get_token_from_code')
     def test_ext_authenticate_no_access_token(self, mock_get_token_from_code):
         request = Mock()
         request.GET = {'code': 'supercode'}
-        backend = AzureADBackend()
-        result = backend.ext_authenticate(request)
-        self.assertEqual(result, None)
+        auth_func = partial(AzureADBackend().ext_authenticate, request)
+        self.assertRaises(AuthenticationException, auth_func)
 
     @patch('ext_auth.backends.providers.aad.AzureADBackend.get_token_from_code')
     def test_ext_authenticate_with_access_token(self, mock_get_token_from_code):
@@ -76,3 +83,4 @@ class AzureADBackendTests(TestCase):
                 request,
                 token
             )
+

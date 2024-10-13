@@ -9,7 +9,7 @@ from django.conf import settings
 
 #import ext_auth.services.ms_graph as ms_graph
 from ext_auth.services.ms_graph import get_graph_user
-from ext_auth.backends.ext_auth import ExtAuthBackend, get_ext_auth_backend
+from ext_auth.backends.ext_auth import ExtAuthBackend, get_ext_auth_backend, AuthenticationException
 from ext_auth.choices import ExternalAuthType
 from django.contrib.auth import get_user_model
 import logging
@@ -76,21 +76,31 @@ class AzureADBackend(ExtAuthBackend):
 
         return flow['auth_uri']
 
-    def ext_authenticate(self, request, **kwargs) -> Union[UserModel, None]:
+    def ext_authenticate(self, request, **kwargs) -> dict:
         flow = request.session.pop(settings.EXT_AUTH_AAD_AUTH_FLOW_KEY, {})
         if 'code' not in request.GET:
-            return
+            raise AuthenticationException("Tried to authenticate, but auth code was not in request")
         try:
             result = self.get_token_from_code(request, flow)
             if settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY in result:
                 token = result.get(
                         settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY)
                 return self.get_ext_user(request, token)
+            elif 'error' in result:
+                error_msg = f"""
+                        Failed to authenticate using msal app: {result.get('error')} \n
+                        Dict error result {result.__str__()}
+                """
+                raise AuthenticationException(error_msg)
+            else:
+                raise AuthenticationException("""No valid result, not error received,
+                authentication not succesfull for unknown reason""")
         except ValueError as e:
             logger.error("Could not get token from code...")
             logger.error(e)
+            raise AuthenticationException("Got value error while getting result from msal app...")
 
-    def get_ext_user(self, request, token, **kwargs):
+    def get_ext_user(self, request, token, **kwargs) -> dict:
         graph_user = get_graph_user(token)
         return {
             'username': graph_user.get('userPrincipalName'),
@@ -109,7 +119,7 @@ class AzureADBackend(ExtAuthBackend):
     def authority(self, request):
         return settings.EXT_AUTH_AAD_AUTH_AUTHORITY
 
-    def get_msal_app(self, cache=None, request=None):
+    def get_msal_app(self, cache=None, request=None) -> ConfidentialClientApplication:
         # Initialize the MSAL confidential client
         auth_app = ConfidentialClientApplication(
             client_id=self.client_id(request),
@@ -149,12 +159,16 @@ class AzureADBackend(ExtAuthBackend):
 
             # This can happen for various reasons, error or token not present in cache
             if not result:
+                logger.error("No result from acquire_token_silent...")
+                auth_app.remove_account(accounts[0])
                 clear_session(request)
                 return
 
             # If for some weird reason, token is not in the validated dict
             token = result.get(settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY)
             if not token:
+                logger.error("No token from acquire_token_silent...")
+                auth_app.remove_account(accounts[0])
                 clear_session(request)
                 return
 

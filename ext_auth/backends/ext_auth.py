@@ -16,6 +16,11 @@ def make_random_password(length=16):
     password = ''.join(secrets.choice(alphabet) for _ in range(length))
     return password
 
+
+class AuthenticationException(Exception):
+    pass
+
+
 class ExtAuthBackend(ABC, ModelBackend):
     """
     Abstract Class that defines a set of methods that needs
@@ -57,8 +62,13 @@ class ExtAuthBackend(ABC, ModelBackend):
         return HttpResponseRedirect(redirect)
 
     def authenticate(self, request, username=None, password=None, **kwargs):
-
+        """
+        Authenticates the user using ext auth backend
+        Can raise a AuthenticationException
+        """
         user_dict = self.ext_authenticate(request, **kwargs)
+        if not user_dict or 'email' not in user_dict:
+            raise AuthenticationException("Authentication did not return a valid user dict...")
         # user_dict should have username and email keys
         if not self.user_exists(user_dict.get('email')):
             user = self.create_user(
@@ -66,9 +76,9 @@ class ExtAuthBackend(ABC, ModelBackend):
                 user_dict.get('email')
             )
             return user
-        
+
         return self.get_user_by_username(user_dict.get('username'))
-    
+
     def get_user_by_username(self, username):
         try:
             user = UserModel._default_manager.get(username=username)
@@ -96,7 +106,7 @@ class ExtAuthBackend(ABC, ModelBackend):
         ...
 
     @abstractmethod
-    def get_ext_user(self, request, **kwargs):
+    def get_ext_user(self, request, **kwargs) -> dict:
         """
         Simply fetches the user from this authentication provider.
         """
