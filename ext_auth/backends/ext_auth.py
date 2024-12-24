@@ -44,7 +44,7 @@ class ExtAuthBackend(ABC, ModelBackend):
         )
         self.save_user_profile(user_profile)
         return user
-        
+
 
     def save_user_profile(self, user_profile: UserProfile) -> UserProfile:
         user_profile = user_profile.save()
@@ -105,20 +105,12 @@ class ExtAuthBackend(ABC, ModelBackend):
         """
         ...
 
-    @abstractmethod
-    def get_ext_user(self, request, **kwargs) -> dict:
-        """
-        Simply fetches the user from this authentication provider.
-        """
-        ...
-
-
 def get_ext_auth_backend(request, type: ExternalAuthType = None) -> ExtAuthBackend:
     for backend, backend_path in _get_backends(return_tuples=True):
         if isinstance(backend, ExtAuthBackend):
             if not type:
                 return backend
-            
+
             # If type spe
             if type == backend.ext_auth_type:
                 return backend

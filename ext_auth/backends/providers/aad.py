@@ -12,6 +12,7 @@ from ext_auth.services.ms_graph import get_graph_user
 from ext_auth.backends.ext_auth import ExtAuthBackend, get_ext_auth_backend, AuthenticationException
 from ext_auth.choices import ExternalAuthType
 from django.contrib.auth import get_user_model
+from ext_auth.keys import EXT_AUTH_AAD_AUTH_FLOW_KEY, EXT_AUTH_AAD_TOKEN_CACHE_KEY, EXT_AUTH_AAD_ACCESS_TOKEN_KEY
 import logging
 
 logger = logging.getLogger(__name__)
@@ -22,22 +23,22 @@ UserModel = get_user_model()
 def load_token_cache(request):
     # Check for a token cache in the session
     cache = SerializableTokenCache()
-    if request.session.get(settings.EXT_AUTH_AAD_TOKEN_CACHE_KEY):
+    if request.session.get(EXT_AUTH_AAD_TOKEN_CACHE_KEY):
         cache.deserialize(
-            request.session[settings.EXT_AUTH_AAD_TOKEN_CACHE_KEY])
+            request.session[EXT_AUTH_AAD_TOKEN_CACHE_KEY])
 
     return cache
 
 def save_token_cache(request, cache):
     # If cache has changed, persist back to session
     if cache.has_state_changed:
-        request.session[settings.EXT_AUTH_AAD_TOKEN_CACHE_KEY] = cache.serialize()
+        request.session[EXT_AUTH_AAD_TOKEN_CACHE_KEY] = cache.serialize()
 
 def clear_session(request):
     """
     Clears the current users session data, which will force new auth
     """
-    request.session.pop(settings.EXT_AUTH_AAD_TOKEN_CACHE_KEY)
+    request.session.pop(EXT_AUTH_AAD_TOKEN_CACHE_KEY)
 
 def has_external_auth(request) -> bool:
     return bool(request.session.get('user'))
@@ -49,10 +50,22 @@ def get_sign_in_flow(request):
     backend = get_ext_auth_backend(request)
     return backend.get_sign_in_flow(request)
 
-def get_token(request) -> str:
-    backend = get_ext_auth_backend(request)
+class TokenResult:
+    access_token: str
+    id_token_claims: dict
 
-    return backend.get_token(request)
+    def __init__(self, access_token, id_token_claims) -> None:
+        self.access_token = access_token
+        self.id_token_claims = id_token_claims
+
+
+def get_token_result(request) -> Union[TokenResult, None]:
+    backend = get_ext_auth_backend(request)
+    if isinstance(backend, AzureADBackend):
+        aad_backend: AzureADBackend = backend
+        result = aad_backend.get_token_result(request)
+        if result and EXT_AUTH_AAD_ACCESS_TOKEN_KEY in result:
+            return TokenResult(result.get(EXT_AUTH_AAD_ACCESS_TOKEN_KEY), result.get("id_token_claims"))
 
 
 class AzureADBackend(ExtAuthBackend):
@@ -67,7 +80,7 @@ class AzureADBackend(ExtAuthBackend):
         flow = get_sign_in_flow(request)
         # Save the expected flow, so we can use it in the callback
         try:
-            request.session[settings.EXT_AUTH_AAD_AUTH_FLOW_KEY] = flow
+            request.session[EXT_AUTH_AAD_AUTH_FLOW_KEY] = flow
         except Exception as e:
             print(e)
         # Redirect to the Azure sign-in page
@@ -77,15 +90,14 @@ class AzureADBackend(ExtAuthBackend):
         return flow['auth_uri']
 
     def ext_authenticate(self, request, **kwargs) -> dict:
-        flow = request.session.pop(settings.EXT_AUTH_AAD_AUTH_FLOW_KEY, {})
+        flow = request.session.pop(EXT_AUTH_AAD_AUTH_FLOW_KEY, {})
         if 'code' not in request.GET:
             raise AuthenticationException("Tried to authenticate, but auth code was not in request")
         try:
             result = self.get_token_from_code(request, flow)
-            if settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY in result:
-                token = result.get(
-                        settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY)
-                return self.get_ext_user(request, token)
+            print(f"LOG: token from code result {result}")
+            if EXT_AUTH_AAD_ACCESS_TOKEN_KEY in result:
+                return self.get_ext_user(result)
             elif 'error' in result:
                 error_msg = f"""
                         Failed to authenticate using msal app: {result.get('error')} \n
@@ -97,17 +109,19 @@ class AzureADBackend(ExtAuthBackend):
                 authentication not succesfull for unknown reason""")
         except ValueError as e:
             logger.error("Could not get token from code...")
-            logger.error(e)
+            logger.error(f"Error response: {e}")
             raise AuthenticationException("Got value error while getting result from msal app...")
 
-    def get_ext_user(self, request, token, **kwargs) -> dict:
-        graph_user = get_graph_user(token)
+    def get_ext_user(self, token_response) -> dict:
+        claims_key = "id_token_claims"
+        if claims_key not in token_response:
+            raise ValueError(f"Missing '{claims_key}' in token response")
         return {
-            'username': graph_user.get('userPrincipalName'),
-            'email': graph_user.get('userPrincipalName'),
-            'firstName': graph_user.get('givenName'),
-            'lastName': graph_user.get('surname'),
-            'department': graph_user.get('department')
+            'username': token_response[claims_key].get('sub'),
+            'email': token_response[claims_key].get('email'),
+            'firstName': '',
+            'lastName': '',
+            'department': ''
         }
 
     def client_id(self, request):
@@ -147,16 +161,19 @@ class AzureADBackend(ExtAuthBackend):
         save_token_cache(request, cache)
         return result
 
-    def get_token(self, request) -> Union[str, None]:
+    def get_token_result(self, request) -> Union[dict, None]:
         cache = load_token_cache(request)
         auth_app = self.get_msal_app(cache)
 
         accounts = auth_app.get_accounts()
+        print(cache)
+        print(auth_app)
+        print(accounts)
         if accounts:
             result = auth_app.acquire_token_silent(
                 settings.EXT_AUTH_AAD_SCOPES,
                 account=accounts[0])
-
+            print(f"ressssss {result}")
             # This can happen for various reasons, error or token not present in cache
             if not result:
                 logger.error("No result from acquire_token_silent...")
@@ -165,7 +182,7 @@ class AzureADBackend(ExtAuthBackend):
                 return
 
             # If for some weird reason, token is not in the validated dict
-            token = result.get(settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY)
+            token = result.get(EXT_AUTH_AAD_ACCESS_TOKEN_KEY)
             if not token:
                 logger.error("No token from acquire_token_silent...")
                 auth_app.remove_account(accounts[0])
@@ -174,4 +191,4 @@ class AzureADBackend(ExtAuthBackend):
 
             # If everything went well, save the new state to session data
             save_token_cache(request, cache)
-            return token
+            return result

@@ -15,7 +15,7 @@ If you want to enable authentication against against Azure AD, Google and more, 
 
 # Requirements
 Python 3.12, 3.11, 3.10, 3.9
-Django 5.1 <= 4.0
+Django >= 5.1
 
 I have not tested lower versions of django and python, so it might be compatible with more versions.
 
@@ -34,14 +34,14 @@ INSTALLED_APPS = [
 ]
 ```
 ## Middleware
-It is also important to add the ´graph_token_middleware´, somewhere after the Session and Authentication middleware:
+It is also important to add the ´access_token_middleware´, somewhere after the Session and Authentication middleware:
 ```python
 MIDDLEWARE = [
     ...
     'django.contrib.sessions.middleware.SessionMiddleware',
     ...
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'ext_auth.middleware.tokens.graph_token_middleware',
+    'ext_auth.middleware.tokens.access_token_middleware',
 ]
 ```
 ## AzureADBackend
@@ -76,9 +76,9 @@ Finally we need to set some values in the django settings to be able to contact 
 ```python
 EXT_AUTH_AAD_CLIENT_ID = 'XXXXX-XXXXX-XXXXX-XXXXXX' # The ´Client ID´ for your Azure AD App Registration
 EXT_AUTH_AAD_TENANT_ID = 'XXXXX-XXXXX-XXXXX-XXXXXX' # Your Azure AD ´Tenant ID´
-EXT_AUTH_AAD_AUTH_AUTHORITY = f"https://login.microsoftonline.com/{EXT_AUTH_AAD_TENANT_ID}" # For single tenant 
+EXT_AUTH_AAD_AUTH_AUTHORITY = f"https://login.microsoftonline.com/{EXT_AUTH_AAD_TENANT_ID}" # For single tenant
 EXT_AUTH_AAD_REDIRECT_URI = '/auth/callback' # Should be the path to you callback view
 EXT_AUTH_AAD_CLIENT_SECRET = XXXXXXXXXXXXXXXXXXXXX # The client secret from your Azure App Registration
 EXT_AUTH_POST_LOGIN_REDIRECT_URI = '/home' # The url that the user will be sent back to after auth is finished
-EXT_AUTH_AAD_SCOPES = ["user.read"] # The scoped permissions you want your user to have. user.read is needed to get user data.
+EXT_AUTH_AAD_SCOPES = ["user.read"] # The scoped permissions you want your user to have.
 ```

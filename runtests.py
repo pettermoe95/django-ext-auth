@@ -39,7 +39,7 @@ default_settings = {
         'django.middleware.common.CommonMiddleware',
         'django.middleware.csrf.CsrfViewMiddleware',
         'django.contrib.auth.middleware.AuthenticationMiddleware',
-        'ext_auth.middleware.tokens.graph_token_middleware',
+        'ext_auth.middleware.tokens.access_token_middleware',
         'portal.middleware.extend_user_attr_middleware',
         'django.contrib.messages.middleware.MessageMiddleware',
         'django.middleware.clickjacking.XFrameOptionsMiddleware',
