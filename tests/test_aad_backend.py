@@ -35,7 +35,7 @@ class AzureADBackendTests(TestCase):
 
         # Call the get_ext_user function with the mock token
         result = AzureADBackend().get_ext_user({
-            'id_token_claims': {'sub': '123', 'email': 'some-email@email.com'}
+            'id_token_claims': {'oid': '123', 'email': 'some-email@email.com'}
         })
         expected_dict = {
             'username': '123',

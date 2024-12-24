@@ -82,3 +82,15 @@ EXT_AUTH_AAD_CLIENT_SECRET = XXXXXXXXXXXXXXXXXXXXX # The client secret from your
 EXT_AUTH_POST_LOGIN_REDIRECT_URI = '/home' # The url that the user will be sent back to after auth is finished
 EXT_AUTH_AAD_SCOPES = ["user.read"] # The scoped permissions you want your user to have.
 ```
+
+## Migration from v1 to v2
+The v1 used the userPrincipalName as username, but from version 2 it will be the oid claim in the id_token.
+The oid claim in the same across applications for the same tenant in Entra ID. It means it will be able to identify the user even
+if you log in to different applications.
+
+### Automatic migration
+The package automatically migrates old users to the new username setup. It will check if the user already exists with email as username, then update it to avoid duplicate users. This will not work for users from external tenants, so it should be handled manually.
+
+### Manual migration for external users
+To do a manual migration I suggest to to an update sql statement. Once the users have logged in using the new system, it should've created
+another user record in the database with the oid as username instead of userPrincipalName. The new user will have email set, so you could update the old user with the oid, then delete the new user account.
