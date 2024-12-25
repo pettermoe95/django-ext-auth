@@ -118,7 +118,7 @@ class AzureADBackend(ExtAuthBackend):
 
         id_token_claims = token_response[claims_key]
         if 'email' not in id_token_claims:
-            raise ValueError(f"Missing 'email' in id_token_claims")
+            raise ValueError(f"Missing 'email' in id_token_claims, might need to add email scope")
 
         if 'oid' not in id_token_claims:
             raise ValueError(f"Missing 'oid' in id_token_claims")
@@ -128,8 +128,8 @@ class AzureADBackend(ExtAuthBackend):
         return {
             'username': username,
             'email': email,
-            'firstName': '',
-            'lastName': '',
+            'firstName': id_token_claims.get('given_name', ''),
+            'lastName': id_token_claims.get('family_name', ''),
             'department': ''
         }
 

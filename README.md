@@ -82,7 +82,11 @@ EXT_AUTH_AAD_REDIRECT_URI = '/auth/callback' # Should be the path to you callbac
 EXT_AUTH_AAD_CLIENT_SECRET = XXXXXXXXXXXXXXXXXXXXX # The client secret from your Azure App Registration
 EXT_AUTH_POST_LOGIN_REDIRECT_URI = '/home' # The url that the user will be sent back to after auth is finished
 EXT_AUTH_AAD_SCOPES = ["user.read"] # The scoped permissions you want your user to have.
+
 ```
+
+# Add given_name/family_name
+In Azure, update the app registration to contain optional claims in the ID token. This will make the user object in the database contain the values. Or else use extra scopes and use the access token to request further information about the user from the Graph API.
 
 ## Migration from v1 to v2
 The v1 used the userPrincipalName as username, but from version 2 it will be the oid claim in the id_token.
