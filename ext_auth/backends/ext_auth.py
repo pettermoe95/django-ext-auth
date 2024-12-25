@@ -28,7 +28,7 @@ def migrate_old_user(new_username: str, email: str):
     This avoids creating duplicate users
     """
     try:
-        user = UserModel.objects.get(username_iexact=email)
+        user = UserModel.objects.get(username__iexact=email)
         print("Found user with email as username, migrating...")
         user.username = new_username
         user.save()
