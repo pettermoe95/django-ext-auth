@@ -15,7 +15,7 @@ If you want to enable authentication against against Azure AD, Google and more, 
 
 # Requirements
 Python 3.12, 3.11, 3.10, 3.9
-Django 5.1 <= 4.0
+Django >= 5.1
 
 I have not tested lower versions of django and python, so it might be compatible with more versions.
 
@@ -34,14 +34,14 @@ INSTALLED_APPS = [
 ]
 ```
 ## Middleware
-It is also important to add the ´graph_token_middleware´, somewhere after the Session and Authentication middleware:
+It is also important to add the ´access_token_middleware´, somewhere after the Session and Authentication middleware:
 ```python
 MIDDLEWARE = [
     ...
     'django.contrib.sessions.middleware.SessionMiddleware',
     ...
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'ext_auth.middleware.tokens.graph_token_middleware',
+    'ext_auth.middleware.tokens.access_token_middleware',
 ]
 ```
 ## AzureADBackend
@@ -76,9 +76,21 @@ Finally we need to set some values in the django settings to be able to contact 
 ```python
 EXT_AUTH_AAD_CLIENT_ID = 'XXXXX-XXXXX-XXXXX-XXXXXX' # The ´Client ID´ for your Azure AD App Registration
 EXT_AUTH_AAD_TENANT_ID = 'XXXXX-XXXXX-XXXXX-XXXXXX' # Your Azure AD ´Tenant ID´
-EXT_AUTH_AAD_AUTH_AUTHORITY = f"https://login.microsoftonline.com/{EXT_AUTH_AAD_TENANT_ID}" # For single tenant 
+EXT_AUTH_AAD_AUTH_AUTHORITY = f"https://login.microsoftonline.com/{EXT_AUTH_AAD_TENANT_ID}" # For single tenant
 EXT_AUTH_AAD_REDIRECT_URI = '/auth/callback' # Should be the path to you callback view
 EXT_AUTH_AAD_CLIENT_SECRET = XXXXXXXXXXXXXXXXXXXXX # The client secret from your Azure App Registration
 EXT_AUTH_POST_LOGIN_REDIRECT_URI = '/home' # The url that the user will be sent back to after auth is finished
-EXT_AUTH_AAD_SCOPES = ["user.read"] # The scoped permissions you want your user to have. user.read is needed to get user data.
+EXT_AUTH_AAD_SCOPES = ["user.read"] # The scoped permissions you want your user to have.
 ```
+
+## Migration from v1 to v2
+The v1 used the userPrincipalName as username, but from version 2 it will be the oid claim in the id_token.
+The oid claim in the same across applications for the same tenant in Entra ID. It means it will be able to identify the user even
+if you log in to different applications.
+
+### Automatic migration
+The package automatically migrates old users to the new username setup. It will check if the user already exists with email as username, then update it to avoid duplicate users. This will not work for users from external tenants, so it should be handled manually.
+
+### Manual migration for external users
+To do a manual migration I suggest to to an update sql statement. Once the users have logged in using the new system, it should've created
+another user record in the database with the oid as username instead of userPrincipalName. The new user will have email set, so you could update the old user with the oid, then delete the new user account.

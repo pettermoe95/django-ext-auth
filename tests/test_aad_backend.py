@@ -11,6 +11,7 @@ from django.urls import reverse
 from ext_auth.backends import ExtAuthBackend, AzureADBackend
 from ext_auth.backends import ext_auth
 from ext_auth.backends.ext_auth import get_ext_auth_backend, AuthenticationException
+from ext_auth import keys
 from ext_auth.models import UserProfile
 from ext_auth.choices import ExternalAuthType
 from ext_auth.services.ms_graph import get_graph_user
@@ -29,19 +30,19 @@ USER_DICT = {
 
 class AzureADBackendTests(TestCase):
 
-    @patch('ext_auth.backends.providers.aad.get_graph_user')
-    def test_get_ext_user(self, mock_get_graph_user):
+    def test_get_ext_user(self):
         # Set up the mock return value for the get_graph_user function
-        mock_get_graph_user.return_value = USER_DICT
 
         # Call the get_ext_user function with the mock token
-        result = AzureADBackend().get_ext_user(None, 'mock-token')
+        result = AzureADBackend().get_ext_user({
+            'id_token_claims': {'oid': '123', 'email': 'some-email@email.com'}
+        })
         expected_dict = {
-            'username': USER_DICT.get('userPrincipalName'),
-            'email': USER_DICT.get('userPrincipalName'),
-            'firstName': USER_DICT.get('givenName'),
-            'lastName': USER_DICT.get('surname'),
-            'department': USER_DICT.get('department')
+            'username': '123',
+            'email': 'some-email@email.com',
+            'firstName': '',
+            'lastName': '',
+            'department': '',
         }
 
         # Assert that the returned dictionary has the expected values
@@ -64,23 +65,21 @@ class AzureADBackendTests(TestCase):
     def test_ext_authenticate_with_access_token(self, mock_get_token_from_code):
         request = Mock()
         request.GET = {'code': 'supercode'}
-        token = 'supertoken'
-        mock_get_token_from_code.return_value = {
-            settings.EXT_AUTH_AAD_ACCESS_TOKEN_KEY: token
+        return_value = {
+            keys.EXT_AUTH_AAD_ACCESS_TOKEN_KEY: 'supertoken'
         }
+        mock_get_token_from_code.return_value = return_value
         with patch('ext_auth.backends.providers.aad.AzureADBackend.get_ext_user') as mock_ext_user:
-            expected_dict = {
+            mock_dict = {
                 'username': USER_DICT.get('userPrincipalName'),
                 'email': USER_DICT.get('userPrincipalName'),
                 'firstName': USER_DICT.get('givenName'),
                 'lastName': USER_DICT.get('surname'),
                 'department': USER_DICT.get('department')
             }
-            mock_ext_user.return_value = expected_dict
-            result = AzureADBackend().ext_authenticate(request)
-            self.assertEqual(result, expected_dict)
+            mock_ext_user.return_value = mock_dict
+            AzureADBackend().ext_authenticate(request)
             mock_ext_user.assert_called_with(
-                request,
-                token
+                return_value
             )
 

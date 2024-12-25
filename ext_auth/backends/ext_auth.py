@@ -21,6 +21,22 @@ class AuthenticationException(Exception):
     pass
 
 
+def migrate_old_user(new_username: str, email: str):
+    """
+    Checks if a user with this email already exists, with it set as username.
+    Update the old user with the oid if it does exist.
+    This avoids creating duplicate users
+    """
+    try:
+        user = UserModel.objects.get(username=email)
+        print("Found user with email as username, migrating...")
+        user.username = new_username
+        user.save()
+        print("Successfully migrated user to new username!")
+    except UserModel.DoesNotExist:
+        ...
+
+
 class ExtAuthBackend(ABC, ModelBackend):
     """
     Abstract Class that defines a set of methods that needs
@@ -44,15 +60,15 @@ class ExtAuthBackend(ABC, ModelBackend):
         )
         self.save_user_profile(user_profile)
         return user
-        
+
 
     def save_user_profile(self, user_profile: UserProfile) -> UserProfile:
         user_profile = user_profile.save()
         return user_profile
 
-    def user_exists(self, email: str, **kwargs) -> bool:
+    def user_exists(self, username: str) -> bool:
         try:
-            UserModel.objects.get(email=email)
+            UserModel.objects.get(username=username)
             return True
         except UserModel.DoesNotExist:
             return False
@@ -67,13 +83,16 @@ class ExtAuthBackend(ABC, ModelBackend):
         Can raise a AuthenticationException
         """
         user_dict = self.ext_authenticate(request, **kwargs)
-        if not user_dict or 'email' not in user_dict:
+        if not user_dict or 'email' not in user_dict or 'username' not in user_dict:
             raise AuthenticationException("Authentication did not return a valid user dict...")
         # user_dict should have username and email keys
-        if not self.user_exists(user_dict.get('email')):
+        username = user_dict['username']
+        email = user_dict['email']
+        migrate_old_user(username, email)
+        if not self.user_exists(username):
             user = self.create_user(
-                user_dict.get('username'),
-                user_dict.get('email')
+                username,
+                email
             )
             return user
 
@@ -105,20 +124,12 @@ class ExtAuthBackend(ABC, ModelBackend):
         """
         ...
 
-    @abstractmethod
-    def get_ext_user(self, request, **kwargs) -> dict:
-        """
-        Simply fetches the user from this authentication provider.
-        """
-        ...
-
-
 def get_ext_auth_backend(request, type: ExternalAuthType = None) -> ExtAuthBackend:
     for backend, backend_path in _get_backends(return_tuples=True):
         if isinstance(backend, ExtAuthBackend):
             if not type:
                 return backend
-            
+
             # If type spe
             if type == backend.ext_auth_type:
                 return backend
