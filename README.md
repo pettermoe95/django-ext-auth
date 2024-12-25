@@ -39,11 +39,12 @@ It is also important to add the ´access_token_middleware´, somewhere after the
 MIDDLEWARE = [
     ...
     'django.contrib.sessions.middleware.SessionMiddleware',
-    ...
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'ext_auth.middleware.tokens.access_token_middleware',
+    'ext_auth.middleware.tokens.access_token_middleware', < -----
 ]
 ```
+If it is not after the AuthenticationMiddleware, it won't be able to initiate authentication properly
+
 ## AzureADBackend
 Now add the AzureADBackend to your AUTHENTICATION_BACKENDS:
 ```python

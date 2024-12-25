@@ -95,7 +95,6 @@ class AzureADBackend(ExtAuthBackend):
             raise AuthenticationException("Tried to authenticate, but auth code was not in request")
         try:
             result = self.get_token_from_code(request, flow)
-            print(f"LOG: token from code result {result}")
             if EXT_AUTH_AAD_ACCESS_TOKEN_KEY in result:
                 return self.get_ext_user(result)
             elif 'error' in result:
@@ -176,14 +175,10 @@ class AzureADBackend(ExtAuthBackend):
         auth_app = self.get_msal_app(cache)
 
         accounts = auth_app.get_accounts()
-        print(cache)
-        print(auth_app)
-        print(accounts)
         if accounts:
             result = auth_app.acquire_token_silent(
                 settings.EXT_AUTH_AAD_SCOPES,
                 account=accounts[0])
-            print(f"ressssss {result}")
             # This can happen for various reasons, error or token not present in cache
             if not result:
                 logger.error("No result from acquire_token_silent...")

@@ -12,4 +12,3 @@ class ExtAuthConfig(AppConfig):
         for name in dir(defaults):
             if name.isupper() and not hasattr(settings, name):
                 setattr(settings, name, getattr(defaults, name))
-                print('setting ->', getattr(defaults, name), 'for ->', name)
